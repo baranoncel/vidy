@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Coins, Loader2, Wand2, CheckCircle2, XCircle, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadToR2 } from "@/lib/hooks/useJob";
+import { useAuthGate } from "@/components/auth/AuthGate";
 
 type TemplateInput = { key: string; label: string; kind: string; required?: boolean; options?: { value: string; label: string }[]; default?: string | number; placeholder?: string };
 type Template = { id: string; displayName: string; description: string; category: string; expectedInputs: TemplateInput[] };
@@ -70,26 +71,30 @@ export function AgentClient() {
     }
   }
 
+  const { requireAuth, isAuthed } = useAuthGate();
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setUpdate(null);
-    try {
-      const res = await fetch("/api/agent/runs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, templateId, inputs }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Submit failed");
-      setRunId(data.runId);
-      setPlanTotal(data.plan?.totalEstCoins ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Submit failed");
-    } finally {
-      setSubmitting(false);
-    }
+    await requireAuth(async () => {
+      setSubmitting(true);
+      setError(null);
+      setUpdate(null);
+      try {
+        const res = await fetch("/api/agent/runs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, templateId, inputs }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Submit failed");
+        setRunId(data.runId);
+        setPlanTotal(data.plan?.totalEstCoins ?? null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Submit failed");
+      } finally {
+        setSubmitting(false);
+      }
+    });
   }
 
   return (
@@ -201,7 +206,7 @@ export function AgentClient() {
 
         <Button type="submit" disabled={submitting || !!uploading} className="gap-2">
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-          {submitting ? "Planning…" : "Plan and run"}
+          {submitting ? "Planning…" : isAuthed ? "Plan and run" : "Sign in to run agent"}
         </Button>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </form>

@@ -5,6 +5,7 @@ import { Coins, Loader2, RotateCcw, Wand2, Upload, X } from "lucide-react";
 import { useJob, uploadToR2 } from "@/lib/hooks/useJob";
 import type { FeatureKey } from "@/lib/feature-models";
 import { Button } from "@/components/ui/button";
+import { useAuthGate } from "@/components/auth/AuthGate";
 
 export type FieldKind =
   | "prompt"
@@ -49,6 +50,7 @@ export function JobConsole({
   modelOptions?: ModelOption[];
 }) {
   const { submit, jobId, update, error, isSubmitting, reset } = useJob();
+  const { requireAuth, isAuthed } = useAuthGate();
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(fields.map((f) => [f.key, f.default ?? ""])),
   );
@@ -91,12 +93,14 @@ export function JobConsole({
         return;
       }
     }
-    await submit({
-      feature,
-      modelSlug: chosenModel,
-      input: values,
-    }).catch((err) => {
-      console.error(err);
+    await requireAuth(async () => {
+      await submit({
+        feature,
+        modelSlug: chosenModel,
+        input: values,
+      }).catch((err) => {
+        console.error(err);
+      });
     });
   }
 
@@ -123,7 +127,7 @@ export function JobConsole({
         <div className="flex items-center justify-between gap-3">
           <Button type="submit" disabled={isWorking || !!uploading} className="gap-2">
             {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            {isWorking ? "Generating…" : "Generate"}
+            {isWorking ? "Generating…" : isAuthed ? "Generate" : "Sign in to generate"}
           </Button>
           {jobId && (
             <Button type="button" variant="outline" onClick={reset} className="gap-2">
