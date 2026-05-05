@@ -4,7 +4,7 @@ import { withErrors } from "@/lib/api";
 import { estimateCoins, type FalUnit } from "@/lib/pricing";
 
 export const runtime = "nodejs";
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const GET = withErrors(async (req: Request) => {
   const url = new URL(req.url);

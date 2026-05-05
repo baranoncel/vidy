@@ -10,13 +10,18 @@ if (r2PublicUrl) {
   }
 }
 
+const isVercel = !!process.env.VERCEL;
+
 const nextConfig: NextConfig = {
-  output: "standalone",
-  // Bundle the Prisma engine + client into the standalone output (pnpm
-  // monorepo style places these under .pnpm/, which Next's tracer doesn't
-  // always pick up automatically).
+  // `output: "standalone"` is for self-host (Docker/Coolify); Vercel does its own packaging.
+  ...(isVercel ? {} : { output: "standalone" as const }),
   outputFileTracingIncludes: {
-    "/**/*": ["./node_modules/.pnpm/@prisma+client*/**", "./node_modules/.pnpm/prisma*/**", "./node_modules/.pnpm/@prisma+engines*/**", "./prisma/**"],
+    "/**/*": [
+      "./node_modules/.pnpm/@prisma+client*/**",
+      "./node_modules/.pnpm/prisma*/**",
+      "./node_modules/.pnpm/@prisma+engines*/**",
+      "./prisma/**",
+    ],
   },
   images: {
     remotePatterns: [
@@ -37,9 +42,6 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
 };
 
