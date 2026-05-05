@@ -12,6 +12,12 @@ if (r2PublicUrl) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Bundle the Prisma engine + client into the standalone output (pnpm
+  // monorepo style places these under .pnpm/, which Next's tracer doesn't
+  // always pick up automatically).
+  outputFileTracingIncludes: {
+    "/**/*": ["./node_modules/.pnpm/@prisma+client*/**", "./node_modules/.pnpm/prisma*/**", "./node_modules/.pnpm/@prisma+engines*/**", "./prisma/**"],
+  },
   images: {
     remotePatterns: [
       ...(r2Hostname
