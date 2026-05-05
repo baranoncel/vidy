@@ -1,8 +1,11 @@
 /**
- * Seed the four Stripe bundles. Run after creating the corresponding Stripe
- * Products/Prices and setting STRIPE_PRICE_* env vars.
+ * Seed the bundle catalog: 3 subscription tiers (primary) + 3 top-up packs
+ * (extras for active subscribers).
  *
  *   pnpm db:seed:bundles
+ *
+ * Subscription `coinAmount` = coins granted per billing cycle.
+ * Top-up `coinAmount` = coins granted once per checkout.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -10,56 +13,87 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const BUNDLES = [
+  // ---------- Subscriptions (primary entry, monthly recurring) ----------
   {
-    sku: "coins_5k",
+    sku: "sub_starter",
     displayName: "Starter",
-    coinAmount: 5_000,
-    priceUsdCents: 500,
-    isSubscription: false,
+    coinAmount: 10_000, // per cycle
+    priceUsdCents: 900,
+    isSubscription: true,
     sortIndex: 1,
-    marketingBlurb: "5,000 Computational Coins — try Vidy on a few clips.",
+    marketingBlurb: "10,000 coins every month. Best for hobbyists and side projects.",
     badge: null,
   },
   {
-    sku: "coins_25k",
+    sku: "sub_creator",
     displayName: "Creator",
-    coinAmount: 25_000,
-    priceUsdCents: 2_500,
-    isSubscription: false,
+    coinAmount: 35_000,
+    priceUsdCents: 2_900,
+    isSubscription: true,
     sortIndex: 2,
-    marketingBlurb: "25,000 coins. Enough for a TikTok-week of premium clips.",
+    marketingBlurb: "35,000 coins/mo. Ideal for daily content workflows.",
     badge: "popular",
   },
   {
-    sku: "coins_100k",
+    sku: "sub_studio",
     displayName: "Studio",
+    coinAmount: 130_000,
+    priceUsdCents: 9_900,
+    isSubscription: true,
+    sortIndex: 3,
+    marketingBlurb: "130,000 coins/mo. For agencies and high-throughput teams.",
+    badge: "best_value",
+  },
+
+  // ---------- Top-up packages (subscribers only) ----------
+  {
+    sku: "topup_5k",
+    displayName: "Top-up · 5,000 coins",
+    coinAmount: 5_000,
+    priceUsdCents: 500,
+    isSubscription: false,
+    sortIndex: 11,
+    marketingBlurb: "Quick top-up when you're close to the cap.",
+    badge: "topup",
+  },
+  {
+    sku: "topup_25k",
+    displayName: "Top-up · 25,000 coins",
+    coinAmount: 25_000,
+    priceUsdCents: 2_500,
+    isSubscription: false,
+    sortIndex: 12,
+    marketingBlurb: "Mid-size top-up for a busy week.",
+    badge: "topup",
+  },
+  {
+    sku: "topup_100k",
+    displayName: "Top-up · 100,000 coins",
     coinAmount: 100_000,
     priceUsdCents: 10_000,
     isSubscription: false,
-    sortIndex: 3,
-    marketingBlurb: "100,000 coins. Run heavy 4K and Veo workloads at the best per-coin price.",
-    badge: "best_value",
-  },
-  {
-    sku: "unlimited_monthly",
-    displayName: "Pro Unlimited",
-    coinAmount: 1_000_000_000,
-    priceUsdCents: 3_000,
-    isSubscription: true,
-    sortIndex: 4,
-    marketingBlurb: "Soft-unlimited monthly access at fair-use rates. Cancel anytime.",
-    badge: "new",
+    sortIndex: 13,
+    marketingBlurb: "Large top-up for video sprints and 4K runs.",
+    badge: "topup",
   },
 ] as const;
 
 const PRICE_IDS: Record<string, string | undefined> = {
-  coins_5k: process.env.STRIPE_PRICE_COINS_5K,
-  coins_25k: process.env.STRIPE_PRICE_COINS_25K,
-  coins_100k: process.env.STRIPE_PRICE_COINS_100K,
-  unlimited_monthly: process.env.STRIPE_PRICE_UNLIMITED_MONTHLY,
+  sub_starter: process.env.STRIPE_PRICE_SUB_STARTER,
+  sub_creator: process.env.STRIPE_PRICE_SUB_CREATOR,
+  sub_studio: process.env.STRIPE_PRICE_SUB_STUDIO,
+  topup_5k: process.env.STRIPE_PRICE_TOPUP_5K,
+  topup_25k: process.env.STRIPE_PRICE_TOPUP_25K,
+  topup_100k: process.env.STRIPE_PRICE_TOPUP_100K,
 };
 
 async function main() {
+  // Disable any legacy SKUs (coins_5k, coins_25k, coins_100k, unlimited_monthly)
+  await prisma.bundle.updateMany({
+    where: { sku: { in: ["coins_5k", "coins_25k", "coins_100k", "unlimited_monthly"] } },
+    data: { enabled: false },
+  });
+
   for (const b of BUNDLES) {
     const stripePriceId = PRICE_IDS[b.sku] || `pending_${b.sku}`;
     await prisma.bundle.upsert({

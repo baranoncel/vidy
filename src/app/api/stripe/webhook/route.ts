@@ -9,7 +9,6 @@ import { log } from "@/lib/logger";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const UNLIMITED_COIN_SENTINEL = 1_000_000_000;
 
 export async function POST(req: NextRequest) {
   if (!stripe) return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
@@ -94,23 +93,38 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice, eventId: s
     data: { userId: user.id, stripeEventId: eventId, kind: "invoice_payment_succeeded", data: invoice as unknown as object },
   });
 
-  // Subscription invoice → mark plan as pro_unlimited and grant the sentinel.
+  // Subscription invoice → grant tier's monthly coin allowance + set plan to the sub sku.
   // Stripe API v2025+ moved subscription off the top-level Invoice; fall back across versions.
   const subId =
     (invoice as unknown as { subscription?: string | null }).subscription ||
     (invoice as unknown as { parent?: { subscription_details?: { subscription?: string } } }).parent?.subscription_details
       ?.subscription;
-  if (subId) {
-    await prisma.user.update({ where: { id: user.id }, data: { plan: "pro_unlimited" } });
-    await postLedger({
-      userId: user.id,
-      delta: UNLIMITED_COIN_SENTINEL,
-      reason: "purchase",
-      stripeEventId: eventId,
-      notes: "Unlimited monthly refill",
-    });
-    log.info("unlimited refill granted", { userId: user.id });
+  if (!subId) return;
+
+  // Find the sub bundle from one of the invoice line items' price ids.
+  const lines = (invoice as unknown as { lines?: { data?: Array<{ price?: { id?: string } }> } }).lines?.data ?? [];
+  const priceId = lines.map((l) => l.price?.id).find(Boolean);
+  if (!priceId) {
+    log.warn("invoice payment without price id", { userId: user.id, eventId });
+    return;
   }
+  const bundle = await prisma.bundle.findFirst({
+    where: { stripePriceId: priceId, isSubscription: true, enabled: true },
+  });
+  if (!bundle) {
+    log.warn("invoice price did not match any subscription bundle", { userId: user.id, priceId });
+    return;
+  }
+
+  await prisma.user.update({ where: { id: user.id }, data: { plan: bundle.sku } });
+  await postLedger({
+    userId: user.id,
+    delta: bundle.coinAmount,
+    reason: "purchase",
+    stripeEventId: eventId,
+    notes: `Subscription cycle ${bundle.sku} → ${bundle.coinAmount} coins`,
+  });
+  log.info("subscription coins granted", { userId: user.id, sku: bundle.sku, coins: bundle.coinAmount });
 }
 
 async function handleSubscriptionCancelled(sub: Stripe.Subscription, eventId: string) {
@@ -121,20 +135,9 @@ async function handleSubscriptionCancelled(sub: Stripe.Subscription, eventId: st
   await prisma.paymentEvent.create({
     data: { userId: user.id, stripeEventId: eventId, kind: "subscription_cancelled", data: sub as unknown as object },
   });
-  // Drain any unlimited sentinel by posting a counter-ledger row.
-  const balance = await prisma.coinLedger.aggregate({ where: { userId: user.id }, _sum: { delta: true } });
-  const current = balance._sum.delta ?? 0;
-  if (current >= UNLIMITED_COIN_SENTINEL / 2) {
-    // Reset to a reasonable cushion so the user keeps any normally-purchased coins.
-    // We assume any sentinel was purely subscription-derived.
-    await postLedger({
-      userId: user.id,
-      delta: -UNLIMITED_COIN_SENTINEL,
-      reason: "expire",
-      stripeEventId: eventId,
-      notes: "Unlimited subscription cancelled",
-    });
-  }
+  log.info("subscription cancelled, plan reset to free", { userId: user.id });
+  // Coins already granted in past cycles are kept (user paid for them);
+  // just no new monthly grants until they resubscribe.
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge, eventId: string) {
