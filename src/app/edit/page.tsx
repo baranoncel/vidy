@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface EditSession {
   id: string;
@@ -140,6 +141,7 @@ function EditPageInner() {
   const [isEditing, setIsEditing] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string>("new-session");
   const [selectedEditType, setSelectedEditType] = useState("object-removal");
+  const featureRun = useFeatureRun("edit");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useHighPrecision, setUseHighPrecision] = useState(true);
   const [usePreserveQuality, setUsePreserveQuality] = useState(true);
@@ -301,61 +303,43 @@ function EditPageInner() {
     setActiveSessionId(newSession.id);
     setIsEditing(true);
 
-    // Simulate edit progress
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "editing") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 15, 95);
-          const messages = [
-            "Analyzing content structure...",
-            "Processing edit request...", 
-            "Applying intelligent edits...",
-            "Refining results...",
-            "Finalizing output..."
-          ];
-          const messageIndex = Math.floor(newProgress / 20);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost done..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 12, 92);
+          const messages = ["Analyzing structure…", "Processing edit…", "Applying edits…", "Refining…", "Finalising…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 20)] || "Almost done…" };
         }
         return session;
       }));
     }, 800);
 
-    // Complete after 4-6 seconds
-    setTimeout(() => {
+    const fileInput = (files && files[0]) as { url?: string } | undefined;
+    try {
+      const result = await featureRun.run({ videoUrl: fileInput?.url ?? undefined, prompt: finalPrompt });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedTypeData = editTypes.find(t => t.value === selectedEditType);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "Edit completed successfully!",
-            result: {
-              type: "edit" as const,
-              content: `${selectedTypeData?.label} completed`,
-              thumbnail: `https://picsum.photos/seed/${session.id}/200/200`,
-              beforeUrl: `https://picsum.photos/seed/${session.id}before/400/300`,
-              afterUrl: `https://picsum.photos/seed/${session.id}after/400/300`,
-              metadata: {
-                editType: selectedEditType,
-                credits: selectedTypeData?.credits || 10
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Edit completed" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "edit" as const,
+          content: `${selectedTypeData?.label || "Vidy"} completed`,
+          thumbnail: url,
+          afterUrl: url,
+          metadata: { editType: selectedEditType, credits: result?.finalCoins ?? result?.estCoins ?? 0 },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsEditing(false);
       setPrompt("");
-    }, Math.random() * 2000 + 4000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

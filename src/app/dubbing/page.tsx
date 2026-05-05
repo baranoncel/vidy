@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  Volume2, 
-  Sparkles, 
+import {
+  Upload,
+  Volume2,
+  Sparkles,
   Play,
   Download,
   Video,
@@ -14,6 +14,7 @@ import {
   Languages,
   User
 } from "lucide-react";
+import { useAgentRun } from "@/lib/hooks/useFeatureRun";
 
 const languages = [
   { id: "en", name: "English", flag: "🇺🇸", voice: "Natural American" },
@@ -54,25 +55,39 @@ export default function DubbingPage() {
   const [lipSyncEnabled, setLipSyncEnabled] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedDub, setGeneratedDub] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const agentRun = useAgentRun("dub-this-video");
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setVideoFile(file);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedVideo(e.target?.result as string);
-      };
+      reader.onload = (e) => setUploadedVideo(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    setErrorMsg(null);
+    if (!videoFile) { setErrorMsg("Upload a video first"); return; }
     setIsProcessing(true);
-    setTimeout(() => {
-      setGeneratedDub("Generated dubbing ready");
-      setIsProcessing(false);
-    }, 6000);
+    try {
+      await agentRun.run(
+        { video: videoFile, language: targetLanguage.id },
+        { templateId: "dub-this-video", prompt: `Dub this video into ${targetLanguage.name}` },
+      );
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    }
   };
+
+  // Reflect agent state into local UI
+  if (agentRun.outputUrl && agentRun.outputUrl !== generatedDub) setGeneratedDub(agentRun.outputUrl);
+  if (isProcessing && (agentRun.status === "completed" || agentRun.status === "failed")) {
+    Promise.resolve().then(() => setIsProcessing(false));
+  }
 
   return (
     <div className="min-h-screen bg-white">

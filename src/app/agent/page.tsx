@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useAgentRun } from "@/lib/hooks/useFeatureRun";
 
 // Workflow system interfaces
 interface WorkflowStep {
@@ -610,6 +611,7 @@ function AgentPageInner() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string>("new-session");
   const [selectedAgentType, setSelectedAgentType] = useState("video-creator");
+  const agentRun = useAgentRun();
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useContextMode, setUseContextMode] = useState(false);
   const [useMemoryMode, setUseMemoryMode] = useState(false);
@@ -770,50 +772,45 @@ function AgentPageInner() {
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
     setIsProcessing(true);
-    
-    // Simulate agent processing with realistic stages
+
+    // Light progress hint while real agent runs
     const stages = [
-      { progress: 20, message: "Understanding your request..." },
-      { progress: 40, message: "Selecting optimal approach..." },
-      { progress: 60, message: "Processing with AI models..." },
-      { progress: 80, message: "Generating final result..." },
-      { progress: 100, message: "Complete!" }
+      { progress: 20, message: "Understanding your request…" },
+      { progress: 40, message: "Selecting optimal approach…" },
+      { progress: 70, message: "Running multi-step pipeline…" },
     ];
-    
     for (const stage of stages) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSessions(prev => prev.map(s => 
-        s.id === newSession.id 
-          ? { ...s, progress: stage.progress, progressMessage: stage.message }
-          : s
-      ));
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, progress: stage.progress, progressMessage: stage.message } : s));
     }
-    
-    // Complete the session
-    setTimeout(() => {
-      setSessions(prev => prev.map(s => 
-        s.id === newSession.id 
-          ? { 
-              ...s, 
-              status: "completed",
-              result: {
-                type: "video",
-                content: `Successfully processed: ${finalPrompt}`,
-                thumbnail: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=200&h=200",
-                videoUrl: "https://videos.pexels.com/video-files/30333849/13003128_2560_1440_25fps.mp4",
-                metadata: { 
-                  agentType: selectedAgentType,
-                  duration: "5s", 
-                  resolution: "1080p",
-                  credits: agentTypes.find(a => a.value === selectedAgentType)?.credits || 10
-                }
-              }
-            }
-          : s
-      ));
+
+    try {
+      const result = await agentRun.run({}, { prompt: finalPrompt });
+      const url = result?.outputUrl ?? null;
+      setSessions(prev => prev.map(s => s.id === newSession.id ? {
+        ...s,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Complete!" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "video",
+          content: `Successfully processed: ${finalPrompt}`,
+          thumbnail: url,
+          videoUrl: url,
+          metadata: {
+            agentType: selectedAgentType,
+            duration: "30s",
+            resolution: "1080p",
+            credits: result?.finalCoins ?? result?.estCoins ?? 0,
+          },
+        } : undefined,
+      } : s));
+    } catch (err) {
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsProcessing(false);
-      if (!promptText) setPrompt(""); // Only clear if not from URL
-    }, 500);
+      if (!promptText) setPrompt("");
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

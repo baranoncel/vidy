@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useAgentRun } from "@/lib/hooks/useFeatureRun";
 
 interface StorySession {
   id: string;
@@ -135,6 +136,7 @@ function StoriesPageInner() {
   const [isCreating, setIsCreating] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string>("new-session");
   const [selectedStoryType, setSelectedStoryType] = useState("visual-story");
+  const agentRun = useAgentRun();
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useContextMode, setUseContextMode] = useState(false);
   const [useMemoryMode, setUseMemoryMode] = useState(false);
@@ -285,31 +287,34 @@ function StoriesPageInner() {
     setActiveSessionId(newSession.id);
     setIsCreating(true);
     setPrompt("");
-    
-    // Simulate story creation
-    setTimeout(() => {
-      setSessions(prev => prev.map(s => 
-        s.id === newSession.id 
-          ? { 
-              ...s, 
-              status: "completed", 
-              result: {
-                type: "video",
-                content: "Created an engaging story",
-                thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200",
-                videoUrl: "https://videos.pexels.com/video-files/4827/4827-uhd_3840_2160_25fps.mp4",
-                metadata: { 
-                  storyType: selectedStoryType,
-                  duration: "5s", 
-                  resolution: "1080p",
-                  credits: storyTypes.find(t => t.value === selectedStoryType)?.credits || 20
-                }
-              }
-            }
-          : s
-      ));
+
+    try {
+      const result = await agentRun.run(
+        { prompt: finalPrompt },
+        { templateId: selectedStoryType === "kids" ? "kids-story-animation" : "trailer-from-script", prompt: finalPrompt },
+      );
+      const url = result?.outputUrl ?? null;
+      setSessions(prev => prev.map(s => s.id === newSession.id ? {
+        ...s,
+        status: result?.status === "completed" ? "completed" : "failed",
+        result: url ? {
+          type: "video",
+          content: "Created an engaging story",
+          thumbnail: url,
+          videoUrl: url,
+          metadata: {
+            storyType: selectedStoryType,
+            duration: "30s",
+            resolution: "1080p",
+            credits: result?.finalCoins ?? result?.estCoins ?? 0,
+          },
+        } : undefined,
+      } : s));
+    } catch (err) {
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const } : s));
+    } finally {
       setIsCreating(false);
-    }, 4000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

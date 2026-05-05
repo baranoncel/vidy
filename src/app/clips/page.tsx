@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  Scissors, 
-  Sparkles, 
+import {
+  Upload,
+  Scissors,
+  Sparkles,
   Play,
   Pause,
   Download,
@@ -14,6 +14,7 @@ import {
   Clock,
   Zap
 } from "lucide-react";
+import { useAgentRun } from "@/lib/hooks/useFeatureRun";
 
 const clipPresets = [
   { id: "social", name: "Social Media", durations: [15, 30, 60], aspect: "9:16", icon: "📱" },
@@ -39,28 +40,38 @@ export default function ClipsPage() {
   const [generatedClips, setGeneratedClips] = useState<string[]>([]);
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(30);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const agentRun = useAgentRun("long-form-to-twitter-clip");
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setVideoFile(file);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedVideo(e.target?.result as string);
-      };
+      reader.onload = (e) => setUploadedVideo(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerateClips = () => {
+  const handleGenerateClips = async () => {
+    setErrorMsg(null);
+    if (!videoFile) { setErrorMsg("Upload a video first"); return; }
     setIsProcessing(true);
-    setTimeout(() => {
-      const clips = Array.from({ length: 3 }, (_, i) => 
-        `https://picsum.photos/seed/${Date.now() + i}/400/600`
+    try {
+      await agentRun.run(
+        { video: videoFile },
+        { templateId: "long-form-to-twitter-clip", prompt: "Find the most viral 60s clip and reformat for shorts" },
       );
-      setGeneratedClips(clips);
-      setIsProcessing(false);
-    }, 4000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    }
   };
+
+  if (agentRun.outputUrl && !generatedClips.includes(agentRun.outputUrl)) setGeneratedClips([agentRun.outputUrl]);
+  if (isProcessing && (agentRun.status === "completed" || agentRun.status === "failed")) {
+    Promise.resolve().then(() => setIsProcessing(false));
+  }
 
   return (
     <div className="min-h-screen bg-white">
