@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Image as ImageIcon, Video, Music, Sparkles, Zap, Wand2, Layers, Box, MicVocal } from "lucide-react";
+import { Image as ImageIcon, Video, Music, Sparkles, Zap, Wand2, Layers, Box, MicVocal, Maximize2, Subtitles, Scissors, Languages, Brain, Compass, Palette, Film, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -13,8 +13,20 @@ const TABS = [
   { href: "/studio/voice", label: "Voice", icon: MicVocal },
   { href: "/studio/effects", label: "Effects", icon: Zap },
   { href: "/studio/3d", label: "3D", icon: Box },
+  { href: "/studio/lipsync", label: "Lipsync", icon: Wand2 },
+  { href: "/studio/dubbing", label: "Dubbing", icon: Languages },
+  { href: "/studio/captions", label: "Captions", icon: Subtitles },
+  { href: "/studio/clips", label: "Clips", icon: Scissors },
+  { href: "/studio/upscale", label: "Upscale", icon: Maximize2 },
+  { href: "/studio/edit", label: "Edit", icon: Palette },
+  { href: "/studio/train", label: "Train", icon: Brain },
   { href: "/studio/canvas", label: "Canvas", icon: Layers },
   { href: "/studio/realtime", label: "Realtime", icon: Wand2 },
+  { href: "/studio/marketing", label: "Marketing", icon: Sparkles },
+  { href: "/studio/cinema", label: "Cinema", icon: Film },
+  { href: "/studio/character", label: "Character", icon: User },
+  { href: "/studio/models", label: "Models", icon: Compass },
+  { href: "/studio/explore", label: "Explore", icon: Compass },
 ];
 
 export function StudioNav() {

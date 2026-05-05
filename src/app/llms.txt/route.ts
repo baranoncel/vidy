@@ -31,6 +31,19 @@ export async function GET() {
   for (const s of Object.values(STUDIO_SEO)) {
     lines.push(`- [${s.title}](${SITE.domain}${s.path}): ${s.description}`);
   }
+  // Tool & use-case landings
+  lines.push(`- [Upscaler](${SITE.domain}/studio/upscale): 4K upscaling for images and video.`);
+  lines.push(`- [Generative editor](${SITE.domain}/studio/edit): Edit images and video with natural language.`);
+  lines.push(`- [Lipsync](${SITE.domain}/studio/lipsync): Sync any voice to any face.`);
+  lines.push(`- [Dubbing](${SITE.domain}/studio/dubbing): Translate and dub video into 30+ languages.`);
+  lines.push(`- [Captions](${SITE.domain}/studio/captions): Auto-captions with word-level timing.`);
+  lines.push(`- [Clips](${SITE.domain}/studio/clips): Long-form video to viral shorts.`);
+  lines.push(`- [Train](${SITE.domain}/studio/train): Fine-tune a custom LoRA.`);
+  lines.push(`- [Marketing studio](${SITE.domain}/studio/marketing): UGC, ad reels, App Store preview videos.`);
+  lines.push(`- [Cinema studio](${SITE.domain}/studio/cinema): Trailers, scene breakdowns, 4K cinematic video.`);
+  lines.push(`- [Character](${SITE.domain}/studio/character): Train a consistent character once, reuse everywhere.`);
+  lines.push(`- [Model catalogue](${SITE.domain}/studio/models): Searchable index of every model in Vidy.`);
+  lines.push(`- [Explore](${SITE.domain}/studio/explore): Live community feed of recent generations.`);
   lines.push("");
   lines.push("## FAQ");
   lines.push("");
