@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+*.log
+.DS_Store
+.vscode
+.idea
+.cursor.rules
+README.md
+to-do.md
+prompts.md
+ui-map.md
+env-setup.md
+coverage
+.turbo

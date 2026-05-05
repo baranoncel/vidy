@@ -1,0 +1,33 @@
+# Project‑wide rules for Cursor AI agents
+LANG=en
+STACK=NextJS+TypeScript+Tailwind+Shadcn/UI
+PKG_MGR=pnpm
+
+# UI
+STYLE_GUIDE:
+  - No gradients, flat colours only
+  - Use Shadcn components whenever available
+  - Keep hero section ≤ 60 vh
+
+
+# Auth
+AUTH=Supabase OAuth (Google) + email/password
+
+# Storage
+MEDIA_STORAGE=Supabase Storage -> bucket `videos`
+
+# Payments
+PAYMENTS=Stripe Subscriptions + Usage‑based credits
+CREDIT_TABLE=credits(model_id, feature, balance)
+
+# Analytics
+ANALYTICS=Firebase GA4 (log all CTA clicks, generation events, credit debits)
+
+# Build & Deploy
+DEPLOY=Vercel
+CI=GitHub Actions (`pnpm install --frozen-lockfile && pnpm build`)
+In everytime do not start with a new dev server, kill all and start new one, so we will use it :3000 port. 
+
+# Lint / Format
+ESLINT=yes
+PRETTIER=yes 

@@ -1,0 +1,263 @@
+// Vidy Prisma schema
+// - Auth tables: User, Session, Account, Verification (better-auth managed)
+// - Domain: CoinLedger, Job, AgentRun, AgentStep, FalModel, Bundle, PaymentEvent
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================================================
+// Auth (better-auth schema)
+// =========================================================================
+
+model User {
+  id                String    @id
+  email             String    @unique
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  name              String?
+  image             String?
+  plan              String    @default("free") // free | pro_unlimited
+  stripeCustomerId  String?   @unique @map("stripe_customer_id")
+  shareOptIn        Boolean   @default(false) @map("share_opt_in")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt      @map("updated_at")
+
+  sessions      Session[]
+  accounts      Account[]
+  coinLedger    CoinLedger[]
+  jobs          Job[]
+  agentRuns     AgentRun[]
+  paymentEvents PaymentEvent[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  userId                String    @map("user_id")
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt      @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt      @map("updated_at")
+
+  @@map("verification")
+}
+
+// =========================================================================
+// Coins ledger
+// 1 coin = $0.001 user-paid. Always ceil markup so we never lose money.
+// =========================================================================
+
+model CoinLedger {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  delta         Int      // signed: +ve purchase|refund|bonus|signup, -ve spend
+  reason        String   // purchase|spend|refund|reconcile|bonus|adjust|signup|expire
+  jobId         String?  @map("job_id")
+  agentRunId    String?  @map("agent_run_id")
+  modelSlug     String?  @map("model_slug")
+  falCostUsd    Float?   @map("fal_cost_usd")
+  stripeEventId String?  @map("stripe_event_id")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([reason])
+  @@map("coin_ledger")
+}
+
+// =========================================================================
+// Bundles (Stripe SKUs for coin purchase)
+// =========================================================================
+
+model Bundle {
+  id             String   @id @default(cuid())
+  sku            String   @unique // coins_5k | coins_25k | coins_100k | unlimited_monthly
+  displayName    String   @map("display_name")
+  coinAmount     Int      @map("coin_amount") // for unlimited use a sentinel: 1_000_000_000
+  priceUsdCents  Int      @map("price_usd_cents")
+  stripePriceId  String   @unique @map("stripe_price_id")
+  isSubscription Boolean  @default(false) @map("is_subscription")
+  enabled        Boolean  @default(true)
+  sortIndex      Int      @default(0) @map("sort_index")
+  marketingBlurb String?  @map("marketing_blurb")
+  badge          String?  // popular | best_value | new
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("bundle")
+}
+
+// =========================================================================
+// Jobs (one per fal call, possibly part of an agent run)
+// =========================================================================
+
+model Job {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  feature       String   // generate|image|video|ugc-video|lipsync|upscale|enhance|tts|audio|dubbing|captions|clips|stories|3d|effects|realtime|style|train|edit|agent-step
+  modelSlug     String   @map("model_slug")
+  status        String   @default("queued") // queued|running|completed|failed|cancelled
+  inputJson     Json     @map("input_json")
+  outputUrl     String?  @map("output_url")
+  outputJson    Json?    @map("output_json")
+  errorMessage  String?  @map("error_message")
+  estCoins      Int      @map("est_coins")     // pre-debit
+  finalCoins    Int?     @map("final_coins")    // after reconcile
+  estFalUsd     Float?   @map("est_fal_usd")
+  finalFalUsd   Float?   @map("final_fal_usd")
+  falRequestId  String?  @unique @map("fal_request_id")
+  agentRunId    String?  @map("agent_run_id")
+  agentStepId   String?  @unique @map("agent_step_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  startedAt     DateTime? @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentRun  AgentRun?  @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  agentStep AgentStep? @relation(fields: [agentStepId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([feature, createdAt(sort: Desc)])
+  @@map("job")
+}
+
+// =========================================================================
+// Agent (multi-model orchestration)
+// =========================================================================
+
+model AgentRun {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  prompt          String
+  templateId      String?  @map("template_id")
+  plan            Json     // DAG snapshot {steps: Step[], totalEstCoins}
+  status          String   @default("planning") // planning|running|completed|failed|cancelled
+  totalEstCoins   Int      @map("total_est_coins")
+  totalFinalCoins Int?     @map("total_final_coins")
+  finalOutputUrl  String?  @map("final_output_url")
+  finalOutputJson Json?    @map("final_output_json")
+  errorMessage    String?  @map("error_message")
+  inputUrlsJson   Json?    @map("input_urls_json") // user-uploaded refs
+  createdAt       DateTime @default(now()) @map("created_at")
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps AgentStep[]
+  jobs  Job[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("agent_run")
+}
+
+model AgentStep {
+  id           String   @id @default(cuid())
+  agentRunId   String   @map("agent_run_id")
+  stepIndex    Int      @map("step_index")
+  stepKey      String   @map("step_key") // human-readable id within plan
+  modelSlug    String   @map("model_slug")
+  inputsJson   Json     @map("inputs_json")
+  outputJson   Json?    @map("output_json")
+  outputUrl    String?  @map("output_url")
+  status       String   @default("pending") // pending|running|completed|failed|skipped
+  estCoins     Int      @map("est_coins")
+  finalCoins   Int?     @map("final_coins")
+  retries      Int      @default(0)
+  errorMessage String?  @map("error_message")
+  dependsOn    String[] @map("depends_on")
+  createdAt    DateTime @default(now()) @map("created_at")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+
+  agentRun AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  job      Job?
+
+  @@unique([agentRunId, stepIndex])
+  @@map("agent_step")
+}
+
+// =========================================================================
+// fal.ai model catalog
+// =========================================================================
+
+model FalModel {
+  slug              String   @id           // e.g. "fal-ai/kling-video/v3/pro/image-to-video"
+  category          String                  // video|image|audio|lipsync|upscale|3d|avatar|vision|tts|stt|training|text|effects
+  displayName       String   @map("display_name")
+  description       String?
+  unit              String                  // per_second|per_video|per_megapixel|per_image|per_1k_chars|per_minute|per_compute_second|per_request|per_generation|per_step|per_training_run|per_audio_second|per_video_second|per_5_second_video|per_4_second_video|per_10_seconds|per_template|per_voice|per_mask|per_unit
+  unitPriceUsd      Float    @map("unit_price_usd")
+  capabilities      Json                    // {textToVideo, imageToVideo, hasAudio, maxResolution, durationOpts, aspectRatios, supportsLora, ...}
+  badge             String?                 // premium|fast|new|beta|hot
+  enabled           Boolean  @default(true)
+  marketingBlurb    String?  @map("marketing_blurb")
+  thumbnailUrl      String?  @map("thumbnail_url")
+  sortIndex         Int      @default(0) @map("sort_index")
+  features          String[] @default([]) // tags: ["text-to-video","4K","with-audio","multi-shot"]
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt      @map("updated_at")
+
+  @@index([category, enabled, sortIndex])
+  @@map("fal_model")
+}
+
+// =========================================================================
+// Stripe payment events log
+// =========================================================================
+
+model PaymentEvent {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  stripeEventId String   @unique @map("stripe_event_id")
+  kind          String
+  data          Json
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payment_event")
+}

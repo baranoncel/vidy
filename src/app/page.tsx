@@ -1,103 +1,121 @@
-import Image from "next/image";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight, Bot, Coins, Layers, Sparkles, Wand2, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { FaqSection } from "@/components/seo/FaqSection";
+import { FEATURE_SEO } from "@/lib/seo-config";
+import { buildMetadata, faqLd, organizationLd, softwareApplicationLd } from "@/lib/seo";
+import { prisma } from "@/lib/db";
+import { estimateCoins, type FalUnit } from "@/lib/pricing";
 
-export default function Home() {
+const seo = FEATURE_SEO.home;
+export const metadata: Metadata = buildMetadata(seo);
+
+const PILLARS = [
+  { icon: Bot, title: "One agent, many models", body: "Tell Vidy what you want — it picks the right models and chains them in a transparent DAG you approve before debit." },
+  { icon: Layers, title: "200+ models", body: "Veo 3.1, Kling v3 & 4K, Seedance 2, Wan, Pika, Luma, Flux, Ideogram, ElevenLabs, Topaz, Sync Lipsync — all behind one wallet." },
+  { icon: Coins, title: "Computational Coins", body: "1 coin = $0.001. Provider cost × 3 markup, ceiled. No tool subscriptions, no surprises." },
+  { icon: Zap, title: "Live progress", body: "SSE streams every step. R2 stores every output. Failed jobs auto-refund." },
+];
+
+export default async function Home() {
+  const featured = await prisma.falModel.findMany({
+    where: { enabled: true, badge: { in: ["premium", "hot", "new"] } },
+    orderBy: [{ sortIndex: "asc" }],
+    take: 6,
+  }).catch(() => []);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <JsonLd id="home-software" data={softwareApplicationLd()} />
+      <JsonLd id="home-org" data={organizationLd()} />
+      <JsonLd id="home-faq" data={faqLd(seo.faq)} />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+      <main className="mx-auto max-w-6xl px-4 py-16">
+        <header className="mb-16 text-center">
+          <span className="mb-4 inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs text-violet-600 dark:text-violet-400">
+            <Sparkles className="h-3 w-3" />
+            Agentic AI Video Studio
+          </span>
+          <h1 className="mx-auto max-w-3xl text-balance text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
+            Generate, edit, dub and animate video with one agent.
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-lg text-neutral-500">
+            {seo.description}
+          </p>
+          <div className="mt-8 flex justify-center gap-3">
+            <Button asChild size="lg">
+              <Link href="/agent" className="gap-2">
+                <Wand2 className="h-4 w-4" />
+                Try the agent
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/pricing" className="gap-2">
+                <Coins className="h-4 w-4" />
+                See coin pricing
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </header>
+
+        <section className="mb-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map((p) => (
+            <div key={p.title} className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800">
+              <p.icon className="mb-3 h-5 w-5 text-violet-500" />
+              <h3 className="mb-1 text-sm font-semibold">{p.title}</h3>
+              <p className="text-sm text-neutral-500">{p.body}</p>
+            </div>
+          ))}
+        </section>
+
+        {featured.length > 0 && (
+          <section className="mb-16">
+            <h2 className="mb-6 text-2xl font-semibold tracking-tight">Featured models</h2>
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {featured.map((m) => (
+                <li
+                  key={m.slug}
+                  className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">{m.displayName}</h3>
+                    {m.badge && (
+                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-violet-600 dark:text-violet-400">
+                        {m.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mb-3 line-clamp-2 text-xs text-neutral-500">{m.description}</p>
+                  <p className="font-mono text-xs text-neutral-400">{m.slug.replace(/^fal-ai\//, "")}</p>
+                  <p className="mt-2 text-sm">
+                    {estimateCoins(m.unit as FalUnit, m.unitPriceUsd, {}).toLocaleString()} coins ref
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section className="rounded-3xl border border-violet-500/30 bg-gradient-to-b from-violet-500/5 to-transparent p-8 text-center">
+          <h2 className="text-2xl font-semibold">Ready to ship a video today?</h2>
+          <p className="mx-auto mt-2 max-w-xl text-neutral-500">
+            New accounts get 500 coins (~50¢) free. Top up any time. Cancel any subscription with one click.
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            <Button asChild size="lg">
+              <Link href="/register">Start free</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/ai-video-tools">Browse all tools</Link>
+            </Button>
+          </div>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+      <FaqSection items={seo.faq} />
+    </>
   );
 }
