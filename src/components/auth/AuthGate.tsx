@@ -2,7 +2,6 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { authClient, useSession } from "@/lib/auth-client";
 
 type Ctx = {
@@ -29,9 +28,7 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
 
   const requireAuth = useCallback<Ctx["requireAuth"]>(
     async (action) => {
-      if (isAuthed) {
-        return await action();
-      }
+      if (isAuthed) return await action();
       pendingActionRef.current = action as () => unknown;
       setOpen(true);
       return undefined;
@@ -44,7 +41,6 @@ export function AuthGateProvider({ children }: { children: React.ReactNode }) {
     setOpen(true);
   }, []);
 
-  // Close modal once authed; auto-run pending action.
   useEffect(() => {
     if (open && isAuthed) {
       setOpen(false);
@@ -100,41 +96,55 @@ function LoginModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div
-        className="relative w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950 p-6 text-white shadow-2xl"
+        className="relative w-full max-w-[400px] rounded-3xl border border-white/20 bg-white/85 p-7 shadow-2xl shadow-black/15 ring-1 ring-black/5 backdrop-blur-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute right-3 top-3 rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white">
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-3 top-3 rounded-full p-1.5 text-gray-500 hover:bg-black/5 hover:text-gray-900"
+        >
           <X className="h-4 w-4" />
         </button>
-        <div className="mb-1 text-xs uppercase tracking-wider text-violet-400">{mode === "signin" ? "Welcome back" : "Get 500 coins free"}</div>
-        <h3 className="mb-1 text-2xl font-semibold">{mode === "signin" ? "Sign in to continue" : "Create your Vidy account"}</h3>
-        <p className="mb-6 text-sm text-neutral-400">
+
+        <h3 className="mb-1 text-[22px] font-semibold tracking-tight text-gray-900">
+          {mode === "signin" ? "Welcome back" : "Create your account"}
+        </h3>
+        <p className="mb-6 text-sm text-gray-500">
           {mode === "signin"
             ? "Sign in to generate, edit, and run agent workflows."
-            : "Sign up — 500 Computational Coins on the house, no card required."}
+            : "Get 500 Computational Coins free, no card required."}
         </p>
 
-        <Button onClick={withGoogle} disabled={busy} variant="outline" className="mb-4 w-full">
+        <button
+          onClick={withGoogle}
+          disabled={busy}
+          className="mb-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+        >
+          <GoogleIcon className="h-4 w-4" />
           Continue with Google
-        </Button>
+        </button>
 
-        <div className="mb-4 flex items-center gap-3 text-xs text-neutral-500">
-          <span className="h-px flex-1 bg-neutral-800" />
-          OR
-          <span className="h-px flex-1 bg-neutral-800" />
+        <div className="mb-4 flex items-center gap-3 text-[11px] uppercase tracking-wider text-gray-400">
+          <span className="h-px flex-1 bg-black/10" />
+          or
+          <span className="h-px flex-1 bg-black/10" />
         </div>
 
-        <form onSubmit={withEmail} className="space-y-3">
+        <form onSubmit={withEmail} className="space-y-2.5">
           {mode === "signup" && (
             <input
               type="text"
-              placeholder="Name"
+              placeholder="Full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-violet-500"
+              className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-gray-900"
             />
           )}
           <input
@@ -143,7 +153,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-violet-500"
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-gray-900"
           />
           <input
             type="password"
@@ -152,27 +162,31 @@ function LoginModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             minLength={mode === "signup" ? 8 : 1}
             required
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-violet-500"
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-gray-900"
           />
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <Button type="submit" disabled={busy} className="w-full gap-2">
+          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+          <button
+            type="submit"
+            disabled={busy}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:opacity-60"
+          >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {mode === "signin" ? "Sign in" : "Create account"}
-          </Button>
+          </button>
         </form>
 
-        <p className="mt-5 text-center text-xs text-neutral-500">
+        <p className="mt-5 text-center text-xs text-gray-500">
           {mode === "signin" ? (
             <>
-              Don&apos;t have an account?{" "}
-              <button onClick={() => setMode("signup")} className="font-medium text-violet-400 hover:underline">
-                Create one
+              New here?{" "}
+              <button onClick={() => setMode("signup")} className="font-medium text-gray-900 underline-offset-2 hover:underline">
+                Create account
               </button>
             </>
           ) : (
             <>
-              Already a user?{" "}
-              <button onClick={() => setMode("signin")} className="font-medium text-violet-400 hover:underline">
+              Already have one?{" "}
+              <button onClick={() => setMode("signin")} className="font-medium text-gray-900 underline-offset-2 hover:underline">
                 Sign in
               </button>
             </>
@@ -180,5 +194,16 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         </p>
       </div>
     </div>
+  );
+}
+
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.5 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.58c2.09-1.93 3.21-4.77 3.21-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.99 7.28-2.66l-3.58-2.75c-.99.66-2.26 1.06-3.7 1.06-2.84 0-5.25-1.92-6.11-4.5H2.18v2.84A10.99 10.99 0 0 0 12 23z" fill="#34A853" />
+      <path d="M5.89 14.15A6.6 6.6 0 0 1 5.5 12c0-.75.13-1.47.36-2.15V7.01H2.18A10.99 10.99 0 0 0 1 12c0 1.78.43 3.46 1.18 4.99l3.71-2.84z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.45 1.99 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.01l3.71 2.84C6.75 7.3 9.16 5.38 12 5.38z" fill="#EA4335" />
+    </svg>
   );
 }

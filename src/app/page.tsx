@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Bot, Coins, Layers, Sparkles, Wand2, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, Wand2 } from "lucide-react";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { FaqSection } from "@/components/seo/FaqSection";
 import { FEATURE_SEO } from "@/lib/seo-config";
@@ -12,13 +11,6 @@ import { HomeHero } from "./home-hero";
 
 const seo = FEATURE_SEO.home;
 export const metadata: Metadata = buildMetadata(seo);
-
-const PILLARS = [
-  { icon: Bot, title: "One agent, many models", body: "Tell Vidy what you want — it picks the right models and chains them in a transparent DAG you approve before debit." },
-  { icon: Layers, title: "200+ models", body: "Veo 3.1, Kling v3 & 4K, Seedance 2, Wan, Pika, Luma, Flux, Ideogram, ElevenLabs, Topaz, Sync Lipsync — all behind one wallet." },
-  { icon: Coins, title: "Computational Coins", body: "1 coin = $0.001. Provider cost × 3 markup, ceiled. No tool subscriptions, no surprises." },
-  { icon: Zap, title: "Live progress", body: "SSE streams every step. R2 stores every output. Failed jobs auto-refund." },
-];
 
 const FEATURE_CAROUSEL_ITEMS = [
   { id: "agent", title: "Agentic UGC promos", description: "Upload an iOS screenshot — get a 15s UGC ad with voiceover, lipsync, music and captions.", image: "/vidy.svg", buttonText: "Try the agent" },
@@ -46,105 +38,112 @@ export default async function Home() {
       <JsonLd id="home-org" data={organizationLd()} />
       <JsonLd id="home-faq" data={faqLd(seo.faq)} />
 
-      {/* HERO with ClaudeChatInput-driven prompt */}
       <HomeHero modelCount={allModels} carouselItems={FEATURE_CAROUSEL_ITEMS} />
 
-      <main className="mx-auto max-w-6xl px-4 pb-16 pt-4">
-        {/* Pillars */}
-        <section className="mb-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PILLARS.map((p) => (
-            <div key={p.title} className="rounded-2xl border border-neutral-200 bg-white/40 p-5 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/40">
-              <p.icon className="mb-3 h-5 w-5 text-violet-500" />
-              <h3 className="mb-1 text-sm font-semibold">{p.title}</h3>
-              <p className="text-sm text-neutral-500">{p.body}</p>
-            </div>
-          ))}
-        </section>
-
-        {/* Featured models from DB */}
+      <main className="mx-auto max-w-6xl px-4 pb-24">
         {featured.length > 0 && (
-          <section className="mb-16">
-            <header className="mb-6 flex items-end justify-between gap-3">
+          <section className="mb-20">
+            <header className="mb-8 flex items-end justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-semibold tracking-tight">Featured models</h2>
-                <p className="mt-1 text-sm text-neutral-500">{allModels.toLocaleString()} models live across video, image, audio, lipsync, upscale, 3D and more.</p>
+                <h2 className="text-3xl font-semibold tracking-tight">Featured models</h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  {allModels.toLocaleString()} models live across video, image, audio, lipsync, upscale, 3D and more.
+                </p>
               </div>
-              <Link href="/pricing" className="text-sm font-medium text-violet-600 hover:underline dark:text-violet-400">
-                See full catalog →
+              <Link
+                href="/pricing"
+                className="hidden items-center gap-1 rounded-full border border-black/10 bg-white/60 px-4 py-1.5 text-sm font-medium text-gray-900 backdrop-blur-md transition hover:bg-white sm:inline-flex"
+              >
+                Full catalog <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </header>
+
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {featured.map((m) => (
-                <li key={m.slug} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-                  <div className="mb-1 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">{m.displayName}</h3>
+                <li
+                  key={m.slug}
+                  className="group relative overflow-hidden rounded-3xl border border-black/[0.06] bg-white/60 p-5 ring-1 ring-black/5 backdrop-blur-md transition hover:border-black/15 hover:shadow-xl hover:shadow-black/5"
+                >
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <h3 className="text-[15px] font-semibold tracking-tight text-gray-900">{m.displayName}</h3>
                     {m.badge && (
-                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-violet-600 dark:text-violet-400">
+                      <span className="shrink-0 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
                         {m.badge}
                       </span>
                     )}
                   </div>
-                  <p className="mb-3 line-clamp-2 text-xs text-neutral-500">{m.description}</p>
-                  <p className="font-mono text-xs text-neutral-400">{m.slug.replace(/^fal-ai\//, "")}</p>
-                  <p className="mt-2 text-sm">
-                    {estimateCoins(m.unit as FalUnit, m.unitPriceUsd, {}).toLocaleString()} coins ref
-                  </p>
+                  {m.description && <p className="mb-4 line-clamp-2 text-xs leading-relaxed text-gray-500">{m.description}</p>}
+                  <div className="flex items-center justify-between border-t border-black/5 pt-3">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-gray-400">{m.slug.replace(/^fal-ai\//, "")}</span>
+                    <span className="text-xs font-medium text-gray-900">
+                      {estimateCoins(m.unit as FalUnit, m.unitPriceUsd, {}).toLocaleString()} coins
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {/* Subscription tiers preview */}
         {bundles.length > 0 && (
-          <section className="mb-16">
-            <header className="mb-6 flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-semibold tracking-tight">Subscriptions</h2>
-                <p className="mt-1 text-sm text-neutral-500">Each plan ships with monthly Computational Coins. Top up any time.</p>
-              </div>
-              <Link href="/pricing" className="text-sm font-medium text-violet-600 hover:underline dark:text-violet-400">
-                Compare plans →
-              </Link>
+          <section className="mb-20">
+            <header className="mb-8">
+              <h2 className="text-3xl font-semibold tracking-tight">Plans</h2>
+              <p className="mt-2 text-sm text-gray-500">Each subscription ships with monthly Computational Coins. Top-ups available any time.</p>
             </header>
             <ul className="grid gap-4 sm:grid-cols-3">
               {bundles.map((b) => (
-                <li key={b.id} className={`relative rounded-2xl border p-6 ${b.badge === "popular" ? "border-violet-500/40 bg-gradient-to-b from-violet-500/5 to-transparent" : "border-neutral-200 dark:border-neutral-800"}`}>
+                <li
+                  key={b.id}
+                  className={[
+                    "relative overflow-hidden rounded-3xl border p-7 ring-1 backdrop-blur-md transition hover:shadow-xl hover:shadow-black/5",
+                    b.badge === "popular"
+                      ? "border-gray-900/20 bg-white/80 ring-gray-900/10"
+                      : "border-black/[0.06] bg-white/60 ring-black/5 hover:border-black/15",
+                  ].join(" ")}
+                >
                   {b.badge && (
-                    <span className="absolute right-4 top-4 rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white dark:bg-white dark:text-neutral-900">
+                    <span className="absolute right-5 top-5 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
                       {b.badge.replace("_", " ")}
                     </span>
                   )}
-                  <h3 className="mb-1 text-xl font-semibold">{b.displayName}</h3>
-                  <div className="mb-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">${(b.priceUsdCents / 100).toFixed(0)}</span>
-                    <span className="text-sm text-neutral-500">/mo</span>
+                  <h3 className="text-lg font-semibold tracking-tight text-gray-900">{b.displayName}</h3>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-4xl font-bold tracking-tight text-gray-900">${(b.priceUsdCents / 100).toFixed(0)}</span>
+                    <span className="text-sm text-gray-500">/mo</span>
                   </div>
-                  <p className="mb-3 text-sm text-neutral-500">{b.coinAmount.toLocaleString()} coins / month</p>
-                  {b.marketingBlurb && <p className="text-xs text-neutral-500">{b.marketingBlurb}</p>}
+                  <p className="mt-2 text-sm text-gray-700">{b.coinAmount.toLocaleString()} coins · monthly</p>
+                  {b.marketingBlurb && <p className="mt-4 text-xs leading-relaxed text-gray-500">{b.marketingBlurb}</p>}
+                  <Link
+                    href="/pricing"
+                    className="mt-6 inline-flex h-10 w-full items-center justify-center gap-1 rounded-2xl bg-gray-900 text-sm font-medium text-white transition hover:bg-black"
+                  >
+                    Choose {b.displayName}
+                  </Link>
                 </li>
               ))}
             </ul>
           </section>
         )}
 
-        {/* Big CTA */}
-        <section className="rounded-3xl border border-violet-500/30 bg-gradient-to-b from-violet-500/5 to-transparent p-8 text-center">
-          <h2 className="text-2xl font-semibold">Ready to ship a video today?</h2>
-          <p className="mx-auto mt-2 max-w-xl text-neutral-500">
+        <section className="overflow-hidden rounded-3xl border border-black/[0.06] bg-white/60 p-12 text-center ring-1 ring-black/5 backdrop-blur-md">
+          <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Ready to ship a video today?</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-gray-500">
             New accounts get 500 coins (~50¢) free. No card required to try.
           </p>
-          <div className="mt-5 flex justify-center gap-3">
-            <Button asChild size="lg">
-              <Link href="/agent" className="gap-2">
-                <Wand2 className="h-4 w-4" /> Try the agent
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/ai-video-tools" className="gap-2">
-                Browse all tools <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/agent"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-gray-900 px-6 text-sm font-medium text-white transition hover:bg-black"
+            >
+              <Wand2 className="h-4 w-4" /> Try the agent
+            </Link>
+            <Link
+              href="/ai-video-tools"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white/60 px-6 text-sm font-medium text-gray-900 backdrop-blur-md transition hover:bg-white"
+            >
+              Browse all tools <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </section>
       </main>
