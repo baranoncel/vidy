@@ -38,16 +38,27 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } },
 };
 
-const TILES = [
-  { href: "/studio/video", title: "Video", body: "Veo 3.1 · Kling v3 · Seedance · Wan", Icon: Video, large: true, reelKey: "video" },
-  { href: "/studio/image", title: "Image", body: "FLUX 1.1 Ultra · Ideogram V3 · Nano Banana · Seedream", Icon: ImageIcon, reelKey: "image" },
-  { href: "/studio/effects", title: "Effects", body: "Pikaffects · Wan FX · Kling FX · PixVerse", Icon: Zap, reelKey: "effects" },
-  { href: "/studio/audio", title: "Audio", body: "Music · Sound effects · MMAudio v2", Icon: Music, reelKey: "audio" },
-  { href: "/studio/voice", title: "Voice", body: "ElevenLabs · Kokoro · Voice cloning", Icon: MicVocal, reelKey: "voice" },
-  { href: "/studio/3d", title: "3D", body: "Hunyuan3D · TRELLIS · Multi-view", Icon: Box, reelKey: "3d" },
-  { href: "/studio/canvas", title: "Canvas", body: "Multi-step templates", Icon: Layers, reelKey: "video" },
-  { href: "/studio/realtime", title: "Realtime", body: "Sub-second image gen", Icon: Wand2, reelKey: "image" },
-] as const;
+import type { CategoryIconKey } from "@/components/studio/CategoryTile";
+
+type Tile = {
+  href: string;
+  title: string;
+  body: string;
+  icon: CategoryIconKey;
+  reelKey: keyof typeof CATEGORY_REELS;
+  large?: boolean;
+};
+
+const TILES: Tile[] = [
+  { href: "/studio/video", title: "Video", body: "Veo 3.1 · Kling v3 · Seedance · Wan", icon: "video", reelKey: "video", large: true },
+  { href: "/studio/image", title: "Image", body: "FLUX 1.1 Ultra · Ideogram V3 · Nano Banana · Seedream", icon: "image", reelKey: "image" },
+  { href: "/studio/effects", title: "Effects", body: "Pikaffects · Wan FX · Kling FX · PixVerse", icon: "zap", reelKey: "effects" },
+  { href: "/studio/audio", title: "Audio", body: "Music · Sound effects · MMAudio v2", icon: "music", reelKey: "audio" },
+  { href: "/studio/voice", title: "Voice", body: "ElevenLabs · Kokoro · Voice cloning", icon: "voice", reelKey: "voice" },
+  { href: "/studio/3d", title: "3D", body: "Hunyuan3D · TRELLIS · Multi-view", icon: "box", reelKey: "3d" },
+  { href: "/studio/canvas", title: "Canvas", body: "Multi-step templates", icon: "layers", reelKey: "video" },
+  { href: "/studio/realtime", title: "Realtime", body: "Sub-second image gen", icon: "wand", reelKey: "image" },
+];
 
 const FEATURED_TEMPLATES = [
   "ios-screenshot-to-ugc-promo",
@@ -156,7 +167,7 @@ export default async function StudioOverview() {
                 href={t.href}
                 title={t.title}
                 body={t.body}
-                Icon={t.Icon}
+                icon={t.icon}
                 showcase={showcase}
                 large={i === 0}
                 modelCount={counts[cat]}

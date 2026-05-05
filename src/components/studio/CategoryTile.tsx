@@ -1,15 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, type LucideIcon } from "lucide-react";
+import {
+  ArrowUpRight,
+  Image as ImageIcon,
+  Video,
+  Music,
+  Box,
+  Wand2,
+  Zap,
+  Layers,
+  MicVocal,
+  Sparkles,
+} from "lucide-react";
 import { AutoplayVideo } from "./AutoplayVideo";
 import type { ShowcaseClip } from "@/lib/studio-showcase";
+
+export type CategoryIconKey = "image" | "video" | "music" | "box" | "wand" | "zap" | "layers" | "voice" | "sparkles";
+
+const ICONS = {
+  image: ImageIcon,
+  video: Video,
+  music: Music,
+  box: Box,
+  wand: Wand2,
+  zap: Zap,
+  layers: Layers,
+  voice: MicVocal,
+  sparkles: Sparkles,
+} as const;
 
 export function CategoryTile({
   href,
   title,
   body,
-  Icon,
+  icon,
   showcase,
   large = false,
   modelCount,
@@ -17,11 +42,12 @@ export function CategoryTile({
   href: string;
   title: string;
   body: string;
-  Icon: LucideIcon;
+  icon: CategoryIconKey;
   showcase?: ShowcaseClip;
   large?: boolean;
   modelCount?: number;
 }) {
+  const Icon = ICONS[icon];
   return (
     <Link
       href={href}
