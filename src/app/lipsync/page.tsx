@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  Mic, 
-  Sparkles, 
-  Play, 
-  X, 
+import {
+  Upload,
+  Mic,
+  Sparkles,
+  Play,
+  X,
   Check,
   User,
   Volume2
 } from "lucide-react";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface Voice {
   name: string;
@@ -72,6 +73,11 @@ export default function LipSyncPage() {
   const [faceImage, setFaceImage] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<'face' | 'speech' | null>('face');
+  const [faceFile, setFaceFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const featureRun = useFeatureRun("lipsync");
 
   const characters = [
     { id: "character1", name: "Character 1", image: "👨‍💼" },
@@ -83,6 +89,7 @@ export default function LipSyncPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setFaceFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         setFaceImage(e.target?.result as string);
@@ -93,16 +100,32 @@ export default function LipSyncPage() {
     }
   };
 
+  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setAudioFile(file);
+  };
+
   const handleCharacterSelect = (characterId: string) => {
     setSelectedCharacter(characterId);
     setShowFaceOptions(false);
     setCurrentStep('speech');
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setShowGenerateModal(false);
-    // Handle generation logic here
-    console.log("Generating with:", { selectedVoice, scriptText, faceImage, selectedCharacter });
+    setErrorMsg(null);
+    if (!faceFile) { setErrorMsg("Upload a face image first"); return; }
+    if (!audioFile && !scriptText) { setErrorMsg("Provide audio or script text"); return; }
+    try {
+      const result = await featureRun.run({
+        videoUrl: faceFile,
+        audioUrl: audioFile ?? undefined,
+        syncMode: "loop",
+      });
+      if (result?.outputUrl) setResultUrl(result.outputUrl);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    }
   };
 
   return (
