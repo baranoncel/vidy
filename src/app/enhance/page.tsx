@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface EnhanceSession {
   id: string;
@@ -143,6 +144,7 @@ function EnhancePageInner() {
   const [upscaleFactor, setUpscaleFactor] = useState("2x");
   const [outputFormat, setOutputFormat] = useState("PNG");
   const [denoisingStrength, setDenoisingStrength] = useState("Medium");
+  const featureRun = useFeatureRun("enhance");
   
   // Sessions data
   const [sessions, setSessions] = useState<EnhanceSession[]>([
@@ -282,68 +284,46 @@ function EnhancePageInner() {
     setActiveSessionId(newSession.id);
     setIsEnhancing(true);
 
-    // Simulate enhancement progress
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "enhancing") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 12, 95);
-          const messages = [
-            "Analyzing content quality...",
-            "Upscaling resolution...", 
-            "Enhancing details...",
-            "Reducing noise and artifacts...",
-            "Finalizing enhancement..."
-          ];
-          const messageIndex = Math.floor(newProgress / 20);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost finished..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 10, 92);
+          const messages = ["Analyzing…", "Upscaling…", "Enhancing details…", "Reducing noise…", "Finalising…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 20)] || "Almost done…" };
         }
         return session;
       }));
     }, 1000);
 
-    // Complete enhancement after delay
-    setTimeout(() => {
+    const fileInput = (files && files[0]) as { url?: string } | undefined;
+    try {
+      const result = await featureRun.run({
+        prompt: finalPrompt,
+        imageUrl: fileInput?.url ?? undefined,
+        fidelity: 0.5,
+      });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedTypeData = enhanceTypes.find(t => t.value === selectedEnhanceType);
-      const isVideo = selectedEnhanceType.includes('video');
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "Enhancement completed successfully!",
-            result: {
-              type: isVideo ? "video" as const : "image" as const,
-              content: `Enhanced with ${selectedTypeData?.label}`,
-              originalUrl: isVideo 
-                ? "https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4"
-                : `https://picsum.photos/seed/${session.id}/400/400`,
-              enhancedUrl: isVideo
-                ? "https://videos.pexels.com/video-files/4827/4827-uhd_3840_2160_25fps.mp4"
-                : `https://picsum.photos/seed/${session.id}/800/800`,
-              metadata: {
-                enhanceType: selectedEnhanceType,
-                upscaleFactor,
-                format: outputFormat,
-                denoisingStrength,
-                credits: selectedTypeData?.credits || 5
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Enhancement completed" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "image" as const,
+          content: `Enhanced with ${selectedTypeData?.label || "Vidy"}`,
+          enhancedUrl: url,
+          metadata: { enhanceType: selectedEnhanceType, upscaleFactor, format: outputFormat, denoisingStrength, credits: result?.finalCoins ?? result?.estCoins ?? 0 },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsEnhancing(false);
       setPrompt("");
-    }, 6000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

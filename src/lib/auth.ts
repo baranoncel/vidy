@@ -2,6 +2,7 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./db";
+import { grantSignupBonus } from "./coins";
 
 const getBaseURL = () => {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
@@ -54,6 +55,20 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "vidy",
     database: { generateId: () => crypto.randomUUID() },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // 500-coin signup bonus, idempotent (no-op if already granted).
+          try {
+            await grantSignupBonus(user.id);
+          } catch (err) {
+            console.error("signup bonus failed", err);
+          }
+        },
+      },
+    },
   },
 });
 

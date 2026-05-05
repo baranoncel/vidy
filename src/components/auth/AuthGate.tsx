@@ -4,6 +4,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { X, Loader2 } from "lucide-react";
 import { authClient, useSession } from "@/lib/auth-client";
 
+type PendingResolver = {
+  run: () => Promise<unknown>;
+  resolve: (v: unknown) => void;
+  reject: (e: unknown) => void;
+};
+
 type Ctx = {
   requireAuth: <T>(action: () => Promise<T> | T) => Promise<T | undefined>;
   openLogin: (afterLogin?: () => void) => void;
@@ -22,38 +28,66 @@ export function useAuthGate() {
 export function AuthGateProvider({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
   const [open, setOpen] = useState(false);
-  const pendingActionRef = useRef<(() => unknown) | null>(null);
+  const pendingRef = useRef<PendingResolver | null>(null);
 
   const isAuthed = !!session?.user;
 
+  // Properly awaitable: if not authed, open modal and keep promise pending
+  // until user signs in (then run action) or closes modal (reject).
   const requireAuth = useCallback<Ctx["requireAuth"]>(
-    async (action) => {
-      if (isAuthed) return await action();
-      pendingActionRef.current = action as () => unknown;
-      setOpen(true);
-      return undefined;
+    (action) => {
+      if (isAuthed) return Promise.resolve(action()) as Promise<ReturnType<typeof action>>;
+      return new Promise((resolve, reject) => {
+        pendingRef.current = {
+          run: async () => action(),
+          resolve: resolve as (v: unknown) => void,
+          reject,
+        };
+        setOpen(true);
+      }) as Promise<ReturnType<typeof action>>;
     },
     [isAuthed],
   );
 
   const openLogin = useCallback((afterLogin?: () => void) => {
-    pendingActionRef.current = afterLogin ?? null;
+    if (afterLogin) {
+      pendingRef.current = {
+        run: async () => afterLogin(),
+        resolve: () => {},
+        reject: () => {},
+      };
+    }
     setOpen(true);
   }, []);
 
+  // When modal becomes auth'd, run the pending action and resolve its promise.
   useEffect(() => {
     if (open && isAuthed) {
       setOpen(false);
-      const cb = pendingActionRef.current;
-      pendingActionRef.current = null;
-      if (cb) Promise.resolve().then(() => cb());
+      const p = pendingRef.current;
+      pendingRef.current = null;
+      if (p) {
+        Promise.resolve()
+          .then(() => p.run())
+          .then((v) => p.resolve(v))
+          .catch((e) => p.reject(e));
+      }
     }
   }, [open, isAuthed]);
+
+  // If user dismisses without signing in, reject any pending promise so
+  // calling code can show an error / cancel.
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    const p = pendingRef.current;
+    pendingRef.current = null;
+    if (p) p.reject(new Error("Cancelled — sign-in required"));
+  }, []);
 
   return (
     <AuthGateContext.Provider value={{ requireAuth, openLogin, isAuthed, isLoading: isPending }}>
       {children}
-      {open && <LoginModal onClose={() => setOpen(false)} />}
+      {open && <LoginModal onClose={handleClose} />}
     </AuthGateContext.Provider>
   );
 }
