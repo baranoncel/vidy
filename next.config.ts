@@ -14,15 +14,20 @@ const isVercel = !!process.env.VERCEL;
 
 const nextConfig: NextConfig = {
   // `output: "standalone"` is for self-host (Docker/Coolify); Vercel does its own packaging.
-  ...(isVercel ? {} : { output: "standalone" as const }),
-  outputFileTracingIncludes: {
-    "/**/*": [
-      "./node_modules/.pnpm/@prisma+client*/**",
-      "./node_modules/.pnpm/prisma*/**",
-      "./node_modules/.pnpm/@prisma+engines*/**",
-      "./prisma/**",
-    ],
-  },
+  ...(isVercel
+    ? {}
+    : {
+        output: "standalone" as const,
+        // Bundle Prisma into the standalone output for self-host only (pnpm puts these under .pnpm/).
+        outputFileTracingIncludes: {
+          "/**/*": [
+            "./node_modules/.pnpm/@prisma+client*/**",
+            "./node_modules/.pnpm/prisma*/**",
+            "./node_modules/.pnpm/@prisma+engines*/**",
+            "./prisma/**",
+          ],
+        },
+      }),
   images: {
     remotePatterns: [
       ...(r2Hostname
