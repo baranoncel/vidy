@@ -23,7 +23,7 @@ export const FEATURE_SEO: Record<string, FeatureSeo> = {
       },
       {
         q: "Which models can I use?",
-        a: "All major fal.ai models including Veo 3.1, Kling v3 Pro & 4K, Seedance 2, Wan 2.5, FLUX 1.1 Pro Ultra, Ideogram V3, ElevenLabs TTS, Sync Lipsync 2.0, Topaz Video Upscale and more — see the live catalogue on the Pricing page.",
+        a: "Every major frontier model including Veo 3.1, Kling v3 Pro & 4K, Seedance 2, Wan 2.5, FLUX 1.1 Pro Ultra, Ideogram V3, ElevenLabs TTS, Sync Lipsync 2.0, Topaz Video Upscale and more — see the live catalogue on the Pricing page.",
       },
       {
         q: "Can I create UGC ads from a phone screenshot?",
@@ -74,7 +74,7 @@ export const FEATURE_SEO: Record<string, FeatureSeo> = {
     path: "/video",
     title: "AI Video Models — Picker",
     description:
-      "Browse and compare every fal.ai video model with live coin pricing. Filter by category, resolution, audio, multi-shot.",
+      "Browse and compare every video model in Vidy's catalogue with live coin pricing. Filter by category, resolution, audio, multi-shot.",
     keywords: ["AI video model picker", "compare video models", "Veo vs Kling"],
     faq: [
       { q: "How does Vidy choose between models?", a: "On the Video page you pick manually. The Agent picks for you using cost, quality, resolution and the input you provide." },

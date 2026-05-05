@@ -22,7 +22,7 @@ export async function GET() {
   lines.push("");
   lines.push("## Pricing");
   lines.push("");
-  lines.push("Vidy uses **Computational Coins**. 1 coin = $0.001 USD. Every model's price is the underlying provider cost (fal.ai) marked up 3× and ceiled. There is no per-tool subscription — one wallet, every feature.");
+  lines.push("Vidy uses **Computational Coins**. 1 coin = $0.001 USD. There is no per-tool subscription — one wallet, every feature.");
   lines.push("");
 
   for (const f of features) {

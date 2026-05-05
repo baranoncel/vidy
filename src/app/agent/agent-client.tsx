@@ -234,7 +234,7 @@ export function AgentClient() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{s.stepKey}</span>
-                    <span className="font-mono text-xs text-neutral-500">{s.modelSlug.replace(/^fal-ai\//, "")}</span>
+                    <span className="font-mono text-xs text-neutral-500">{s.modelSlug.replace(/^fal-ai\//, "").replace(/\/.*$/, "")}</span>
                   </div>
                   {s.errorMessage && <p className="text-xs text-red-500">{s.errorMessage}</p>}
                   {s.outputUrl && (

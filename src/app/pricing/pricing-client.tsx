@@ -193,7 +193,7 @@ export function PricingClient({ models, bundles }: { models: Model[]; bundles: B
                 <p className="mb-3 line-clamp-2 text-xs text-neutral-500">{m.description}</p>
               )}
               <div className="flex items-baseline justify-between text-sm">
-                <span className="font-mono text-neutral-400">{m.slug.replace(/^fal-ai\//, "")}</span>
+                <span className="text-neutral-400">{m.category}</span>
               </div>
               <div className="mt-3 flex items-baseline justify-between text-sm">
                 <span className="text-neutral-500">per {UNIT_LABEL[m.unit] || m.unit}</span>

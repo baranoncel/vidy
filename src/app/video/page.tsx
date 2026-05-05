@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface VideoSession {
   id: string;
@@ -141,6 +142,7 @@ function VideoPageInner() {
   const [duration, setDuration] = useState("5");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [motionIntensity, setMotionIntensity] = useState("Medium");
+  const featureRun = useFeatureRun("video");
   
   // Sessions data
   const [sessions, setSessions] = useState<VideoSession[]>([
@@ -305,63 +307,53 @@ function VideoPageInner() {
     setActiveSessionId(newSession.id);
     setIsGenerating(true);
 
-    // Simulate generation progress
+    // Light progress hint while real backend runs
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "generating") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 10, 95);
-          const messages = [
-            "Analyzing your prompt...",
-            "Generating initial frames...", 
-            "Creating motion sequences...",
-            "Rendering final video...",
-            "Adding finishing touches..."
-          ];
-          const messageIndex = Math.floor(newProgress / 20);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost ready..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 8, 92);
+          const messages = ["Analyzing prompt…", "Queuing job…", "Generating frames…", "Rendering…", "Almost ready…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 20)] || "Almost ready…" };
         }
         return session;
       }));
     }, 1200);
 
-    // Complete generation after delay (longer for video)
-    setTimeout(() => {
+    try {
+      const result = await featureRun.run({
+        prompt: finalPrompt,
+        durationSeconds: Number(duration) || 5,
+        aspectRatio,
+      });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedModelData = videoModels.find(m => m.value === selectedModel);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "Video generated successfully!",
-            result: {
-              type: "video" as const,
-              content: `Generated with ${selectedModelData?.label}`,
-              videoUrl: "https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4",
-              thumbnailUrl: `https://picsum.photos/seed/${session.id}/400/300`,
-              metadata: {
-                model: selectedModel,
-                duration: `${duration}s`,
-                aspectRatio,
-                motionIntensity,
-                credits: selectedModelData?.credits || 15
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Video generated successfully" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "video" as const,
+          content: `Generated with ${selectedModelData?.label || "Vidy"}`,
+          videoUrl: url,
+          thumbnailUrl: url,
+          metadata: {
+            model: result?.modelSlug || selectedModel,
+            duration: `${duration}s`,
+            aspectRatio,
+            motionIntensity,
+            credits: result?.finalCoins ?? result?.estCoins ?? selectedModelData?.credits ?? 0,
+          },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsGenerating(false);
       setPrompt("");
-    }, 8000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

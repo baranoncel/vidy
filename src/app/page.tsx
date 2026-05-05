@@ -74,7 +74,7 @@ export default async function Home() {
                   </div>
                   {m.description && <p className="mb-4 line-clamp-2 text-xs leading-relaxed text-gray-500">{m.description}</p>}
                   <div className="flex items-center justify-between border-t border-black/5 pt-3">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-gray-400">{m.slug.replace(/^fal-ai\//, "")}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-gray-400">{m.category}</span>
                     <span className="text-xs font-medium text-gray-900">
                       {estimateCoins(m.unit as FalUnit, m.unitPriceUsd, {}).toLocaleString()} coins
                     </span>

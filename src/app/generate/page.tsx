@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface Session {
   id: string;
@@ -174,6 +175,10 @@ export default function GeneratePage() {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useStartFrame, setUseStartFrame] = useState(false);
   const [useEndFrame, setUseEndFrame] = useState(false);
+
+  // Real backend wiring: hits /api/feature/generate (or /image when activeTab is image),
+  // uploads to R2 if needed, polls SSE.
+  const featureRun = useFeatureRun(activeTab === "image" ? "image" : "generate");
   
   // Mock sessions data
   const [sessions, setSessions] = useState<Session[]>([
@@ -281,22 +286,34 @@ export default function GeneratePage() {
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
     setIsGenerating(true);
-    
-    // Simulate generation
-    setTimeout(() => {
-      setSessions(prev => prev.map(s => 
-        s.id === newSession.id 
-          ? { 
-              ...s, 
-              status: "completed", 
-              thumbnail: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=200&h=200",
-              videoUrl: "https://videos.pexels.com/video-files/30333849/13003128_2560_1440_25fps.mp4"
+
+    try {
+      const durationMap: Record<string, number> = { "5": 5, "8": 8, "10": 10 };
+      const durationSeconds = durationMap[resolution] ?? 5;
+      const result = await featureRun.run({
+        prompt: prompt.trim(),
+        durationSeconds,
+        aspectRatio: "16:9",
+      });
+      const url = result?.outputUrl ?? null;
+      setSessions(prev => prev.map(s =>
+        s.id === newSession.id
+          ? {
+              ...s,
+              status: result?.status === "completed" ? "completed" : "failed",
+              videoUrl: url || undefined,
+              thumbnail: url || undefined,
             }
-          : s
+          : s,
       ));
+    } catch (err) {
+      setSessions(prev => prev.map(s =>
+        s.id === newSession.id ? { ...s, status: "failed", progressMessage: err instanceof Error ? err.message : "Failed" } : s,
+      ));
+    } finally {
       setIsGenerating(false);
       setPrompt("");
-    }, 3000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

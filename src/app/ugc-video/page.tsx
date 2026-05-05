@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  Users, 
-  Sparkles, 
+import {
+  Upload,
+  Users,
+  Sparkles,
   Play,
   Download,
   Video,
   User,
   Settings
 } from "lucide-react";
+import { useAgentRun } from "@/lib/hooks/useFeatureRun";
 
 const influencerStyles = [
   { id: "lifestyle", name: "Lifestyle", description: "Daily life content", icon: "✨", bg: "bg-pink-100", color: "text-pink-600" },
@@ -45,27 +46,52 @@ export default function UGCVideoPage() {
   const [selectedFormat, setSelectedFormat] = useState(videoFormats[0]);
   const [selectedAvatar, setSelectedAvatar] = useState(avatars[0]);
   const [productImage, setProductImage] = useState<string | null>(null);
+  const [productFile, setProductFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const agentRun = useAgentRun("ios-screenshot-to-ugc-promo");
 
   const handleProductUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setProductFile(file);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setProductImage(e.target?.result as string);
-      };
+      reader.onload = (e) => setProductImage(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!productFile) {
+      setErrorMsg("Upload a product image first");
+      return;
+    }
+    setErrorMsg(null);
     setIsGenerating(true);
-    setTimeout(() => {
-      setGeneratedVideo(`https://picsum.photos/seed/${Date.now()}/400/600`);
-      setIsGenerating(false);
-    }, 5000);
+    setGeneratedVideo(null);
+    try {
+      const durationSeconds = parseInt(selectedFormat.duration) || 15;
+      await agentRun.run(
+        {
+          screenshot: productFile,
+          productLine: prompt || `${selectedStyle.name} content with ${selectedAvatar.name}`,
+          tone: selectedStyle.id,
+          durationSeconds,
+        },
+        { templateId: "ios-screenshot-to-ugc-promo", prompt: prompt || `Create a ${selectedFormat.duration} ${selectedStyle.name} UGC promo` },
+      );
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    }
   };
+
+  // Pull state from agentRun every render
+  if (agentRun.outputUrl && agentRun.outputUrl !== generatedVideo) setGeneratedVideo(agentRun.outputUrl);
+  if (isGenerating && (agentRun.status === "completed" || agentRun.status === "failed")) {
+    // Defer to next render to satisfy React's rules
+    Promise.resolve().then(() => setIsGenerating(false));
+  }
 
   return (
     <div className="min-h-screen bg-white">

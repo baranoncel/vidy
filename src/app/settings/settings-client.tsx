@@ -68,7 +68,7 @@ export function SettingsClient({
                 <p className="font-medium">{row.reason}</p>
                 <p className="text-xs text-neutral-500">
                   {new Date(row.createdAt).toLocaleString()}
-                  {row.modelSlug ? ` · ${row.modelSlug.replace(/^fal-ai\//, "")}` : ""}
+                  {row.modelSlug ? ` · ${row.modelSlug.replace(/^fal-ai\//, "").replace(/\/.*$/, "")}` : ""}
                   {row.notes ? ` · ${row.notes}` : ""}
                 </p>
               </div>

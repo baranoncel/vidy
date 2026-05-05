@@ -3,11 +3,20 @@ LANG=en
 STACK=NextJS+TypeScript+Tailwind+Shadcn/UI
 PKG_MGR=pnpm
 
+# Branding
+BRAND=Vidy is the only user-facing brand. Never expose underlying providers (fal.ai, fal-ai/* slugs, OpenAI, ElevenLabs, Topaz, etc.) in any user-visible UI string, FAQ, marketing copy, error message, OG/meta tag, llms.txt, or page metadata. Internal code (lib/, env vars, model registry slugs) may reference them; UI must not.
+PROVIDER_HIDING_PATTERNS:
+  - Strip the `fal-ai/` prefix when rendering any model slug; prefer FalModel.displayName.
+  - Any progress / status / error message: name the action ("Generating…", "Calling AI…"), never the provider.
+  - Marketing copy and FAQ: refer to "Vidy", "Vidy's models", "our agent", or use neutral product names (Veo, Kling, Flux, Ideogram, etc.) — those are model brands users recognize, not the provider routing.
+
 # UI
 STYLE_GUIDE:
-  - No gradients, flat colours only
-  - Use Shadcn components whenever available
-  - Keep hero section ≤ 60 vh
+  - No cheesy violet gradients. Glass aesthetic: bg-white/60, ring-1 ring-black/5, rounded-3xl, backdrop-blur-md.
+  - Black primary buttons, rounded-2xl. White outline secondary.
+  - Use existing Shadcn-style components in src/components/ui/ before adding new ones.
+  - When in doubt about a UI rewrite, do NOT replace user-built UIs. Modify in place; surgical edits only.
+  - Keep hero section ≤ 60 vh.
 
 
 # Auth

@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface ImageSession {
   id: string;
@@ -128,6 +129,7 @@ function ImagePageInner() {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [aspectRatio, setAspectRatio] = useState("1:1");
   const [stylePreset, setStylePreset] = useState("Default");
+  const featureRun = useFeatureRun("image");
   
   // Sessions data
   const [sessions, setSessions] = useState<ImageSession[]>([
@@ -286,60 +288,51 @@ function ImagePageInner() {
     setActiveSessionId(newSession.id);
     setIsGenerating(true);
 
-    // Simulate generation progress
+    // Light progress hint while real backend runs
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "generating") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 15, 95);
-          const messages = [
-            "Analyzing your prompt...",
-            "Generating initial concepts...", 
-            "Refining details...",
-            "Adding finishing touches..."
-          ];
-          const messageIndex = Math.floor(newProgress / 25);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost done..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 12, 92);
+          const messages = ["Analyzing prompt…", "Queuing job…", "Refining…", "Almost done…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 25)] || "Almost done…" };
         }
         return session;
       }));
     }, 800);
 
-    // Complete generation after delay
-    setTimeout(() => {
+    try {
+      const result = await featureRun.run({
+        prompt: finalPrompt,
+        aspectRatio,
+        numImages: 1,
+      });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedModelData = imageModels.find(m => m.value === selectedModel);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "Image generated successfully!",
-            result: {
-              type: "image" as const,
-              content: `Generated with ${selectedModelData?.label}`,
-              imageUrl: `https://picsum.photos/seed/${session.id}/800/800`,
-              metadata: {
-                model: selectedModel,
-                aspectRatio,
-                style: stylePreset,
-                credits: selectedModelData?.credits || 5
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Image generated successfully" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "image" as const,
+          content: `Generated with ${selectedModelData?.label || "Vidy"}`,
+          imageUrl: url,
+          metadata: {
+            model: result?.modelSlug || selectedModel,
+            aspectRatio,
+            style: stylePreset,
+            credits: result?.finalCoins ?? result?.estCoins ?? selectedModelData?.credits ?? 0,
+          },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsGenerating(false);
       setPrompt("");
-    }, 5000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {
