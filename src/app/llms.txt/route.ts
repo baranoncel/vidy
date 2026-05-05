@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { FEATURE_SEO } from "@/lib/seo-config";
+import { STUDIO_SEO } from "@/lib/studio-seo";
 import { SITE } from "@/lib/seo";
 
 export const runtime = "nodejs";
@@ -22,6 +23,13 @@ export async function GET() {
   lines.push("");
   for (const f of features) {
     lines.push(`- [${f.title}](${SITE.domain}${f.path}): ${f.description}`);
+  }
+  lines.push("");
+  lines.push("## Vidy Studio");
+  lines.push("");
+  lines.push(`- [Vidy Studio](${SITE.domain}/studio): One workspace for image, video, audio, voice, effects, 3D, and agent templates.`);
+  for (const s of Object.values(STUDIO_SEO)) {
+    lines.push(`- [${s.title}](${SITE.domain}${s.path}): ${s.description}`);
   }
   lines.push("");
   lines.push("## FAQ");
