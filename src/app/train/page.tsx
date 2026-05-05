@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  Wand2, 
-  Sparkles, 
+import {
+  Upload,
+  Wand2,
+  Sparkles,
   Image as ImageIcon,
   Play,
   Download,
   Brain,
   Clock
 } from "lucide-react";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 const trainingTypes = [
   { id: "style", name: "Style", description: "Art style or aesthetic", icon: "🎨" },
@@ -36,30 +37,39 @@ export default function TrainPage() {
   const [currentStage, setCurrentStage] = useState(0);
   const [testPrompt, setTestPrompt] = useState("");
   const [generatedTest, setGeneratedTest] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const featureRun = useFeatureRun("train");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    setImageFiles(prev => [...prev, ...files]);
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedImages(prev => [...prev, e.target?.result as string]);
-      };
+      reader.onload = (e) => setUploadedImages(prev => [...prev, e.target?.result as string]);
       reader.readAsDataURL(file);
     });
   };
 
-  const handleStartTraining = () => {
+  const handleStartTraining = async () => {
+    setErrorMsg(null);
+    if (imageFiles.length < 5) { setErrorMsg("Upload at least 5 images for training"); return; }
+    if (!trainingName.trim()) { setErrorMsg("Give your model a trigger word"); return; }
     setIsTraining(true);
-    // Simulate training stages
-    const stages = [1, 2, 3];
-    stages.forEach((stage, index) => {
-      setTimeout(() => {
-        setCurrentStage(stage);
-        if (stage === 3) {
-          setIsTraining(false);
-        }
-      }, (index + 1) * 2000);
-    });
+    setCurrentStage(1);
+    try {
+      const result = await featureRun.run({
+        imagesUrl: imageFiles,
+        triggerWord: trainingName.trim(),
+        steps: 1000,
+      });
+      setCurrentStage(3);
+      if (result?.errorMessage) setErrorMsg(result.errorMessage);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setIsTraining(false);
+    }
   };
 
   const handleGenerateTest = () => {

@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface ThreeDSession {
   id: string;
@@ -136,6 +137,7 @@ function ThreeDPageInner() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string>("new-session");
   const [selectedModelType, setSelectedModelType] = useState("object-generation");
+  const featureRun = useFeatureRun("3d");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useHighResolution, setUseHighResolution] = useState(true);
   const [useTextures, setUseTextures] = useState(true);
@@ -297,62 +299,46 @@ function ThreeDPageInner() {
     setActiveSessionId(newSession.id);
     setIsGenerating(true);
 
-    // Simulate 3D generation progress (longer than other types)
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "generating") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 8, 95);
-          const messages = [
-            "Analyzing 3D requirements...",
-            "Building mesh structure...", 
-            "Generating geometry...",
-            "Creating textures...",
-            "Optimizing topology...",
-            "Finalizing 3D model..."
-          ];
-          const messageIndex = Math.floor(newProgress / 16);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost finished..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 7, 92);
+          const messages = ["Analyzing requirements…", "Building mesh…", "Generating geometry…", "Creating textures…", "Optimising…", "Finalising…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 16)] || "Almost done…" };
         }
         return session;
       }));
     }, 1200);
 
-    // Complete after 8-12 seconds (3D takes longer)
-    setTimeout(() => {
+    const fileInput = (files && files[0]) as { url?: string } | undefined;
+    try {
+      const result = await featureRun.run({
+        imageUrl: fileInput?.url ?? undefined,
+        prompt: finalPrompt,
+      });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedTypeData = modelTypes.find(t => t.value === selectedModelType);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "3D model generated successfully!",
-            result: {
-              type: "3d-model" as const,
-              content: `${selectedTypeData?.label} completed`,
-              thumbnail: `https://picsum.photos/seed/${session.id}/200/200`,
-              modelUrl: `https://picsum.photos/seed/${session.id}/400/400`,
-              metadata: {
-                modelType: selectedModelType,
-                polygons: `${Math.floor(Math.random() * 50 + 10)}.${Math.floor(Math.random() * 9)}K`,
-                credits: selectedTypeData?.credits || 25
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "3D model generated" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "3d-model" as const,
+          content: `${selectedTypeData?.label || "Vidy"} completed`,
+          modelUrl: url,
+          thumbnail: url,
+          metadata: { modelType: selectedModelType, credits: result?.finalCoins ?? result?.estCoins ?? 0 },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsGenerating(false);
       setPrompt("");
-    }, Math.random() * 4000 + 8000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

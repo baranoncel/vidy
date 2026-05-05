@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  MessageSquare, 
-  Sparkles, 
+import {
+  Upload,
+  MessageSquare,
+  Sparkles,
   Download,
   Video,
   Type,
   Settings,
   Languages
 } from "lucide-react";
+import { useFeatureRun, useAgentRun } from "@/lib/hooks/useFeatureRun";
 
 const captionStyles = [
   { id: "default", name: "Default", description: "Standard white text", preview: "Aa", bg: "bg-black", color: "text-white" },
@@ -45,6 +46,7 @@ const captionTypes = [
 
 export default function CaptionsPage() {
   const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [selectedType, setSelectedType] = useState(captionTypes[0]);
   const [selectedStyle, setSelectedStyle] = useState(captionStyles[0]);
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
@@ -52,26 +54,34 @@ export default function CaptionsPage() {
   const [customText, setCustomText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCaptions, setGeneratedCaptions] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(18);
   const [position, setPosition] = useState("bottom");
+  const featureRun = useFeatureRun("captions");
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setVideoFile(file);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedVideo(e.target?.result as string);
-      };
+      reader.onload = (e) => setUploadedVideo(e.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    setErrorMsg(null);
+    if (!videoFile) { setErrorMsg("Upload a video first"); return; }
     setIsGenerating(true);
-    setTimeout(() => {
-      setGeneratedCaptions("Generated captions ready");
+    try {
+      const result = await featureRun.run({ videoUrl: videoFile });
+      if (result?.outputUrl) setGeneratedCaptions(result.outputUrl);
+      else if (result?.errorMessage) setErrorMsg(result.errorMessage);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    } finally {
       setIsGenerating(false);
-    }, 3000);
+    }
   };
 
   const mockCaptions = [

@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface AudioSession {
   id: string;
@@ -139,6 +140,7 @@ function AudioPageInner() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string>("new-session");
   const [selectedAudioType, setSelectedAudioType] = useState("music-generation");
+  const featureRun = useFeatureRun("audio");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useHighQuality, setUseHighQuality] = useState(true);
   const [useStereo, setUseStereo] = useState(true);
@@ -300,61 +302,41 @@ function AudioPageInner() {
     setActiveSessionId(newSession.id);
     setIsGenerating(true);
 
-    // Simulate audio generation progress
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "generating") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 12, 95);
-          const messages = [
-            "Processing audio prompt...",
-            "Generating audio patterns...", 
-            "Applying audio effects...",
-            "Mixing and mastering...",
-            "Finalizing audio track..."
-          ];
-          const messageIndex = Math.floor(newProgress / 20);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost ready..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 10, 92);
+          const messages = ["Processing prompt…", "Composing patterns…", "Applying effects…", "Mixing…", "Mastering…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 20)] || "Almost done…" };
         }
         return session;
       }));
     }, 600);
 
-    // Complete after 3-5 seconds
-    setTimeout(() => {
+    try {
+      const result = await featureRun.run({ prompt: finalPrompt, durationSeconds: 10 });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedTypeData = audioTypes.find(t => t.value === selectedAudioType);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "Audio generated successfully!",
-            result: {
-              type: "audio" as const,
-              content: `${selectedTypeData?.label} completed`,
-              thumbnail: `https://picsum.photos/seed/${session.id}/200/200`,
-              audioUrl: `https://www.soundjay.com/misc/sounds/bell-ringing-05.wav`,
-              metadata: {
-                audioType: selectedAudioType,
-                duration: `${Math.floor(Math.random() * 3 + 1)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
-                credits: selectedTypeData?.credits || 15
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Audio generated" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "audio" as const,
+          content: `${selectedTypeData?.label || "Vidy"} completed`,
+          audioUrl: url,
+          metadata: { audioType: selectedAudioType, credits: result?.finalCoins ?? result?.estCoins ?? 0 },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsGenerating(false);
       setPrompt("");
-    }, Math.random() * 2000 + 3000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {

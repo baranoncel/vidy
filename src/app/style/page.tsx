@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { SessionBar } from "@/components/SessionBar";
 import { ScrollFeatures } from "@/components/ui/scroll-features";
-import { 
-  Upload, 
-  Palette, 
-  Sparkles, 
+import {
+  Upload,
+  Palette,
+  Sparkles,
   Download,
   ImageIcon,
   Brush
 } from "lucide-react";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 const artStyles = [
   { id: "vangogh", name: "Van Gogh", description: "Starry Night style", preview: "🌌" },
@@ -36,28 +37,41 @@ export default function StylePage() {
   const [isTransferring, setIsTransferring] = useState(false);
   const [styledImage, setStyledImage] = useState<string | null>(null);
   const [usePresetStyle, setUsePresetStyle] = useState(true);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [styleFile, setStyleFile] = useState<File | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const featureRun = useFeatureRun("style");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'original' | 'style') => {
     const file = e.target.files?.[0];
     if (file) {
+      if (type === 'original') setOriginalFile(file);
+      else setStyleFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
-        if (type === 'original') {
-          setOriginalImage(e.target?.result as string);
-        } else {
-          setStyleImage(e.target?.result as string);
-        }
+        if (type === 'original') setOriginalImage(e.target?.result as string);
+        else setStyleImage(e.target?.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
+    setErrorMsg(null);
+    if (!originalFile) { setErrorMsg("Upload your image first"); return; }
     setIsTransferring(true);
-    setTimeout(() => {
-      setStyledImage(`https://picsum.photos/seed/${Date.now()}/800/800`);
+    try {
+      const result = await featureRun.run({
+        imageUrl: originalFile,
+        prompt: usePresetStyle ? `${selectedStyle.name} style — ${selectedStyle.description}` : `Apply the reference style at ${selectedStrength.value} strength`,
+      });
+      if (result?.outputUrl) setStyledImage(result.outputUrl);
+      else if (result?.errorMessage) setErrorMsg(result.errorMessage);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+    } finally {
       setIsTransferring(false);
-    }, 3000);
+    }
   };
 
   return (

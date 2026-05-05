@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { useFeatureRun } from "@/lib/hooks/useFeatureRun";
 
 interface TTSSession {
   id: string;
@@ -138,6 +139,7 @@ function TTSPageInner() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string>("new-session");
   const [selectedVoiceModel, setSelectedVoiceModel] = useState("neural-voice");
+  const featureRun = useFeatureRun("tts");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [useEmotions, setUseEmotions] = useState(true);
   const [useMultilingual, setUseMultilingual] = useState(false);
@@ -280,60 +282,41 @@ function TTSPageInner() {
     setActiveSessionId(newSession.id);
     setIsGenerating(true);
 
-    // Simulate voice generation progress (fast for TTS)
     const progressInterval = setInterval(() => {
       setSessions(prev => prev.map(session => {
         if (session.id === newSession.id && session.status === "generating") {
-          const newProgress = Math.min((session.progress || 0) + Math.random() * 30, 95);
-          const messages = [
-            "Analyzing text content...",
-            "Generating voice synthesis...", 
-            "Applying voice model...",
-            "Finalizing audio..."
-          ];
-          const messageIndex = Math.floor(newProgress / 25);
-          
-          return {
-            ...session,
-            progress: newProgress,
-            progressMessage: messages[messageIndex] || "Almost ready..."
-          };
+          const newProgress = Math.min((session.progress || 0) + Math.random() * 25, 92);
+          const messages = ["Analyzing text…", "Synthesising voice…", "Applying voice model…", "Finalising…"];
+          return { ...session, progress: newProgress, progressMessage: messages[Math.floor(newProgress / 25)] || "Almost done…" };
         }
         return session;
       }));
     }, 400);
 
-    // Complete quickly for TTS
-    setTimeout(() => {
+    try {
+      const result = await featureRun.run({ text: finalPrompt });
       clearInterval(progressInterval);
+      const url = result?.outputUrl ?? null;
       const selectedTypeData = voiceModels.find(t => t.value === selectedVoiceModel);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === newSession.id) {
-          return {
-            ...session,
-            status: "completed" as const,
-            progress: 100,
-            progressMessage: "Voice generated successfully!",
-            result: {
-              type: "audio" as const,
-              content: `${selectedTypeData?.label} audio generated`,
-              thumbnail: `https://picsum.photos/seed/${session.id}/200/200`,
-              audioUrl: `https://www.soundjay.com/misc/sounds/bell-ringing-05.wav`,
-              metadata: {
-                voiceModel: selectedVoiceModel,
-                duration: `${Math.floor(Math.random() * 30 + 5)}.${Math.floor(Math.random() * 9)}s`,
-                credits: selectedTypeData?.credits || 5
-              }
-            }
-          };
-        }
-        return session;
-      }));
-      
+      setSessions(prev => prev.map(session => session.id === newSession.id ? {
+        ...session,
+        status: result?.status === "completed" ? "completed" : "failed",
+        progress: 100,
+        progressMessage: result?.status === "completed" ? "Voice generated" : (result?.errorMessage || "Failed"),
+        result: url ? {
+          type: "audio" as const,
+          content: `${selectedTypeData?.label || "Vidy"} audio generated`,
+          audioUrl: url,
+          metadata: { voiceModel: selectedVoiceModel, credits: result?.finalCoins ?? result?.estCoins ?? 0 },
+        } : undefined,
+      } : session));
+    } catch (err) {
+      clearInterval(progressInterval);
+      setSessions(prev => prev.map(s => s.id === newSession.id ? { ...s, status: "failed" as const, progressMessage: err instanceof Error ? err.message : "Failed" } : s));
+    } finally {
       setIsGenerating(false);
       setPrompt("");
-    }, Math.random() * 1000 + 2000);
+    }
   };
 
   const handleSendMessage = (message: string, files: any[], pastedContent: any[]) => {
