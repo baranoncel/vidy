@@ -41,5 +41,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...features, ...studio, ...modelEntries];
+  const legal = ["/terms", "/privacy", "/refund"].map((p) => ({
+    url: `${base}${p}`,
+    lastModified: now,
+    changeFrequency: "yearly" as const,
+    priority: 0.3,
+  }));
+
+  return [...features, ...studio, ...modelEntries, ...legal];
 }
