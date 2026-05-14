@@ -22,11 +22,9 @@ const helpItems = [
 ];
 
 const legalItems = [
-  { title: "Terms of Service", description: "Our terms and conditions", href: "/legal/terms" },
-  { title: "Privacy Policy", description: "How we protect your data", href: "/legal/privacy" },
-  { title: "Cookie Policy", description: "Our use of cookies", href: "/legal/cookies" },
-  { title: "DMCA", description: "Copyright and takedown policy", href: "/legal/dmca" },
-  { title: "Refund Policy", description: "Our refund terms", href: "/legal/refunds" },
+  { title: "Terms of Service", description: "Our terms and conditions", href: "/terms" },
+  { title: "Privacy Policy", description: "How we protect your data", href: "/privacy" },
+  { title: "Refund Policy", description: "Our refund terms", href: "/refund" },
 ];
 
 interface StickyFooterProps {
